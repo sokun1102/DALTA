@@ -47,27 +47,41 @@ export default function GuestCartScreen({ navigation }) {
     setRefreshing(false);
   };
 
-  const updateQuantity = async (productId, newQuantity) => {
+  const updateQuantity = async (productId, newQuantity, variation = {}) => {
     try {
       if (newQuantity === 0) {
         await removeFromCart(productId);
         return;
       }
 
-      const updatedItems = await updateGuestCartItem(productId, newQuantity);
+      const updatedItems = await updateGuestCartItem(productId, newQuantity, variation);
       setCartItems(updatedItems);
     } catch (error) {
       Alert.alert("Lỗi", "Không thể cập nhật số lượng");
     }
   };
 
-  const removeFromCart = async (productId) => {
-    try {
-      const updatedItems = await removeFromGuestCart(productId);
-      setCartItems(updatedItems);
-    } catch (error) {
-      Alert.alert("Lỗi", "Không thể xóa sản phẩm khỏi giỏ hàng");
-    }
+  const removeFromCart = async (productId, variation = {}, productName = "") => {
+    Alert.alert(
+      "Xóa sản phẩm",
+      `Bạn có chắc chắn muốn xóa "${productName || "sản phẩm này"}" khỏi giỏ hàng?`,
+      [
+        { text: "Hủy", style: "cancel" },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Xóa bằng cách set quantity = 0 với variation
+              const updatedItems = await updateGuestCartItem(productId, 0, variation);
+              setCartItems(updatedItems);
+            } catch (error) {
+              Alert.alert("Lỗi", "Không thể xóa sản phẩm khỏi giỏ hàng");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const clearCart = async () => {
@@ -122,20 +136,25 @@ export default function GuestCartScreen({ navigation }) {
         <Text style={styles.productName} numberOfLines={2}>
           {item.product_id?.name || "Sản phẩm không tồn tại"}
         </Text>
+        {item.variation?.color && (
+          <Text style={styles.variationText}>
+            Màu: {item.variation.color}
+          </Text>
+        )}
         <Text style={styles.productPrice}>
           {(item.price_at_time || item.product_id?.price || 0).toLocaleString("vi-VN")}đ
         </Text>
         <View style={styles.quantityControls}>
           <TouchableOpacity
             style={styles.quantityButton}
-            onPress={() => updateQuantity(item.product_id._id, item.quantity - 1)}
+            onPress={() => updateQuantity(item.product_id._id, item.quantity - 1, item.variation)}
           >
             <Text style={styles.quantityButtonText}>-</Text>
           </TouchableOpacity>
           <Text style={styles.quantity}>{item.quantity}</Text>
           <TouchableOpacity
             style={styles.quantityButton}
-            onPress={() => updateQuantity(item.product_id._id, item.quantity + 1)}
+            onPress={() => updateQuantity(item.product_id._id, item.quantity + 1, item.variation)}
           >
             <Text style={styles.quantityButtonText}>+</Text>
           </TouchableOpacity>
@@ -143,9 +162,16 @@ export default function GuestCartScreen({ navigation }) {
       </View>
       <TouchableOpacity
         style={styles.removeButton}
-        onPress={() => removeFromCart(item.product_id._id)}
+        onPress={() => removeFromCart(
+          item.product_id._id, 
+          item.variation || {}, 
+          item.product_id?.name
+        )}
+        activeOpacity={0.7}
       >
-        <Text style={styles.removeButtonText}>🗑️</Text>
+        <View style={styles.removeButtonContent}>
+          <Text style={styles.removeButtonIcon}>🗑️</Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -201,7 +227,9 @@ export default function GuestCartScreen({ navigation }) {
           <FlatList
             data={cartItems}
             renderItem={renderCartItem}
-            keyExtractor={(item) => item.product_id._id}
+            keyExtractor={(item, index) => 
+              `${item.product_id._id}_${item.variation?.color || 'no_variation'}_${item.variation?.size || ''}_${index}`
+            }
             style={styles.cartList}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -320,6 +348,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 4,
   },
+  variationText: {
+    color: "#9ca3af",
+    fontSize: 12,
+    marginBottom: 4,
+  },
   productPrice: {
     color: "#ef4444",
     fontSize: 14,
@@ -351,10 +384,25 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   removeButton: {
-    padding: 8,
+    padding: 12,
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "rgba(239, 68, 68, 0.4)",
+    shadowColor: "#ef4444",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  removeButtonText: {
-    fontSize: 16,
+  removeButtonContent: {
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  removeButtonIcon: {
+    fontSize: 20,
   },
   footer: {
     backgroundColor: "#1a1a1a",

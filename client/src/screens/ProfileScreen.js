@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import API, { setAuthToken } from "../services/api";
+import { imageUrl } from "../services/image";
 import { useFocusEffect } from "@react-navigation/native";
 
 export default function ProfileScreen({ navigation }) {
@@ -32,19 +33,19 @@ export default function ProfileScreen({ navigation }) {
     try {
       const token = await AsyncStorage.getItem("token");
       if (token) {
-        setAuthToken(token);
-        try {
-          const response = await API.get("/auth/users/me");
-          const userData = response?.data?.data;
-          if (userData) {
-            setUser(userData);
-            // Lưu thông tin user vào AsyncStorage
-            await AsyncStorage.setItem("user", JSON.stringify(userData));
-          }
-        } catch (apiErr) {
-          setUser(null);
-          await AsyncStorage.removeItem("user");
+      setAuthToken(token);
+      try {
+        const response = await API.get("/auth/users/me");
+        const userData = response?.data?.data;
+        if (userData) {
+          setUser(userData);
+          // Lưu thông tin user vào AsyncStorage
+          await AsyncStorage.setItem("user", JSON.stringify(userData));
         }
+      } catch (apiErr) {
+        setUser(null);
+        await AsyncStorage.removeItem("user");
+      }
       } else {
         setUser(null);
         await AsyncStorage.removeItem("user");
@@ -56,6 +57,61 @@ export default function ProfileScreen({ navigation }) {
       setLoading(false);
     }
   };
+
+  const handleAvatarPress = () => {
+    Alert.alert(
+      "Đổi ảnh đại diện",
+      "Chọn cách thay đổi ảnh đại diện",
+      [
+        {
+          text: "Nhập URL",
+          onPress: () => {
+            Alert.prompt(
+              "Nhập URL ảnh",
+              "Vui lòng nhập URL của ảnh đại diện",
+              [
+                { text: "Hủy", style: "cancel" },
+                {
+                  text: "Lưu",
+                  onPress: async (url) => {
+                    if (url && url.trim()) {
+                      await uploadAvatarUrl(url.trim());
+                    }
+                  },
+                },
+              ],
+              "plain-text"
+            );
+          },
+        },
+        { text: "Hủy", style: "cancel" },
+      ]
+    );
+  };
+
+  const uploadAvatarUrl = async (url) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      setAuthToken(token);
+      
+      // Update avatar via profile update endpoint
+      const response = await API.put("/auth/users/me", { avatar: url });
+
+      if (response.data?.success) {
+        // Reload user data
+        await loadUserData();
+        Alert.alert("Thành công", "Đã cập nhật ảnh đại diện");
+      } else {
+        throw new Error(response.data?.message || "Không thể cập nhật ảnh");
+      }
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      Alert.alert("Lỗi", error.response?.data?.message || "Không thể cập nhật ảnh đại diện");
+    }
+  };
+
 
   const handleLogout = async () => {
     Alert.alert(
@@ -80,68 +136,72 @@ export default function ProfileScreen({ navigation }) {
     );
   };
 
-  const menuItems = [
+  // Menu items cho user thường
+  const userMenuItems = [
     {
       id: 1,
       title: "Thông tin cá nhân",
-      icon: "👤",
-      onPress: () => {},
+      subtitle: "Chỉnh sửa thông tin tài khoản và địa chỉ",
+      onPress: () => navigation.navigate("EditProfileAndAddresses"),
     },
     {
       id: 2,
       title: "Đơn hàng của tôi",
-      icon: "📦",
+      subtitle: "Xem lịch sử mua hàng và theo dõi đơn hàng",
       onPress: () => navigation.navigate("OrderHistory"),
-    },
-    {
-      id: 3,
-      title: "Địa chỉ giao hàng",
-      icon: "📍",
-      onPress: () => {},
     },
     {
       id: 4,
       title: "Phương thức thanh toán",
-      icon: "💳",
-      onPress: () => {},
+      subtitle: "Quản lý thẻ thanh toán và ví điện tử",
+      onPress: () => navigation.navigate("PaymentMethods"),
     },
     {
       id: 5,
       title: "Voucher của tôi",
-      icon: "🎫",
-      onPress: () => {},
+      subtitle: "Mã giảm giá và ưu đãi đang có",
+      onPress: () => navigation.navigate("Vouchers"),
     },
     {
       id: 6,
       title: "Cài đặt",
-      icon: "⚙️",
-      onPress: () => {},
+      subtitle: "Tùy chỉnh ứng dụng và thông báo",
+      onPress: () => navigation.navigate("Settings"),
     },
     {
       id: 7,
       title: "Hỗ trợ",
-      icon: "🆘",
+      subtitle: "Trung tâm trợ giúp và liên hệ",
       onPress: () => {},
     },
   ];
 
-  // Thêm menu admin nếu user có role admin
-  if (user?.role === "admin") {
-    menuItems.unshift(
-      {
-        id: 0,
-        title: "Quản lý sản phẩm",
-        icon: "🛍️",
-        onPress: () => navigation.navigate("AdminProducts"),
-      },
-      {
-        id: -1,
-        title: "Quản lý đơn hàng",
-        icon: "📦",
-        onPress: () => navigation.navigate("Orders"),
-      }
-    );
-  }
+  // Menu items cho admin
+  const adminMenuItems = [
+    {
+      id: 0,
+      title: "Quản lý sản phẩm",
+      subtitle: "Thêm, sửa, xóa sản phẩm",
+      onPress: () => navigation.navigate("AdminProducts"),
+      isAdmin: true,
+    },
+    {
+      id: -1,
+      title: "Quản lý đơn hàng",
+      subtitle: "Xem và xử lý đơn hàng",
+      onPress: () => navigation.navigate("Orders"),
+      isAdmin: true,
+    },
+    {
+      id: -2,
+      title: "Thống kê doanh thu",
+      subtitle: "Tổng hợp doanh thu thành công và hủy/boom",
+      onPress: () => navigation.navigate("RevenueStats"),
+      isAdmin: true,
+    },
+  ];
+
+  const isAdmin = user?.role === "admin";
 
   if (loading) {
     return (
@@ -159,10 +219,13 @@ export default function ProfileScreen({ navigation }) {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
           >
-            <Text style={styles.backIcon}>‹</Text>
+            <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Tài Khoản</Text>
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle}>Tài Khoản</Text>
+          </View>
           <View style={styles.placeholder} />
         </View>
 
@@ -185,31 +248,45 @@ export default function ProfileScreen({ navigation }) {
 
         {/* Bottom Navigation */}
         <View style={styles.bottomNav}>
+          <View style={styles.bottomNavBorder} />
           <TouchableOpacity
             style={styles.navItem}
             onPress={() => navigation.navigate("Home")}
+            activeOpacity={0.7}
           >
             <Text style={styles.navIcon}>■</Text>
-            <Text style={styles.navLabel}>Home</Text>
+            <Text style={styles.navLabel}>Trang chủ</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.navItem}
             onPress={() => navigation.navigate("Categories")}
+            activeOpacity={0.7}
           >
             <Text style={styles.navIcon}>□</Text>
-            <Text style={styles.navLabel}>Danh Mục</Text>
+            <Text style={styles.navLabel}>Danh mục</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
+          <TouchableOpacity 
+            style={styles.navItem}
+            onPress={() => navigation.navigate(user ? "OrderHistory" : "GuestCart")}
+            activeOpacity={0.7}
+          >
             <Text style={styles.navIcon}>○</Text>
-            <Text style={styles.navLabel}>Tìm kiếm</Text>
+            <Text style={styles.navLabel}>Đơn hàng</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navItem}>
+          <TouchableOpacity 
+            style={styles.navItem}
+            onPress={() => navigation.navigate(user ? "Cart" : "GuestCart")}
+            activeOpacity={0.7}
+          >
             <Text style={styles.navIcon}>▢</Text>
-            <Text style={styles.navLabel}>Order</Text>
+            <Text style={styles.navLabel}>Giỏ hàng</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.navItem, styles.activeNavItem]}>
-            <Text style={[styles.navIcon, styles.activeNavIcon]}>◯</Text>
-            <Text style={[styles.navLabel, styles.activeNavLabel]}>Tài Khoản</Text>
+          <TouchableOpacity 
+            style={[styles.navItem, styles.navItemActive]}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.navIcon, styles.navIconActive]}>◯</Text>
+            <Text style={[styles.navLabel, styles.navLabelActive]}>Tài khoản</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -219,83 +296,166 @@ export default function ProfileScreen({ navigation }) {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, isAdmin && styles.headerAdmin]}>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, isAdmin && styles.backButtonAdmin]}
           onPress={() => navigation.goBack()}
+          activeOpacity={0.7}
         >
-          <Text style={styles.backIcon}>‹</Text>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Tài Khoản</Text>
+        <View style={styles.headerCenter}>
+          <Text style={[styles.headerTitle, isAdmin && styles.headerTitleAdmin]}>
+            {isAdmin ? "Quản Trị" : "Tài Khoản"}
+          </Text>
+        </View>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* User Info */}
-        <View style={styles.userInfoCard}>
-          <View style={styles.avatarContainer}>
+        <View style={[styles.userInfoCard, isAdmin && styles.userInfoCardAdmin]}>
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            onPress={handleAvatarPress}
+            activeOpacity={0.7}
+          >
             <Image
-              source={require("../../assets/depositphotos_57530297-stock-illustration-shopping-cart-icon.jpg")}
-              style={styles.avatar}
+              source={
+                user?.avatar
+                  ? { uri: imageUrl(user.avatar) }
+                  : require("../../assets/depositphotos_57530297-stock-illustration-shopping-cart-icon.jpg")
+              }
+              style={[styles.avatar, isAdmin && styles.avatarAdmin]}
             />
-          </View>
+            <View style={styles.avatarEditBadge}>
+              <Text style={styles.avatarEditText}>✏️</Text>
+            </View>
+          </TouchableOpacity>
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>{user?.name || "Khách"}</Text>
+            <View style={styles.userNameRow}>
+              <Text style={styles.userName}>{user?.name || "Khách"}</Text>
+              {isAdmin && (
+                <View style={styles.adminBadge}>
+                  <Text style={styles.adminBadgeText}>ADMIN</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.userEmail}>{user?.email || "user@example.com"}</Text>
-            <Text style={styles.userPhone}>{user?.phone_number || "0901518779"}</Text>
+            <Text style={styles.userPhone}>{user?.phone_number || "Chưa có"}</Text>
           </View>
         </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
-              onPress={item.onPress}
-            >
-              <View style={styles.menuItemLeft}>
-                <Text style={styles.menuIcon}>{item.icon}</Text>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-              </View>
-              <Text style={styles.menuArrow}>›</Text>
-            </TouchableOpacity>
-          ))}
+        {/* Admin Section */}
+        {isAdmin && (
+          <View style={styles.adminSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Quản trị hệ thống</Text>
+              <View style={styles.adminIndicator} />
+            </View>
+            <View style={styles.menuContainer}>
+              {adminMenuItems.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.menuItem, styles.menuItemAdmin]}
+                  onPress={item.onPress}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.menuItemContent}>
+                    <Text style={[styles.menuTitle, styles.menuTitleAdmin]}>
+                      {item.title}
+                    </Text>
+                    {item.subtitle && (
+                      <Text style={[styles.menuSubtitle, styles.menuSubtitleAdmin]}>
+                        {item.subtitle}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={[styles.menuArrow, styles.menuArrowAdmin]}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* User Menu Items */}
+        <View style={styles.userSection}>
+          {isAdmin && (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Tài khoản cá nhân</Text>
+            </View>
+          )}
+          <View style={styles.menuContainer}>
+            {userMenuItems.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.menuItem}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuItemContent}>
+                  <Text style={styles.menuTitle}>{item.title}</Text>
+                  {item.subtitle && (
+                    <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                  )}
+                </View>
+                <Text style={styles.menuArrow}>›</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* Logout Button */}
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity 
+          style={styles.logoutButton} 
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
           <Text style={styles.logoutText}>Đăng xuất</Text>
         </TouchableOpacity>
       </ScrollView>
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
+        <View style={styles.bottomNavBorder} />
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => navigation.navigate("Home")}
+          activeOpacity={0.7}
         >
           <Text style={styles.navIcon}>■</Text>
-          <Text style={styles.navLabel}>Home</Text>
+          <Text style={styles.navLabel}>Trang chủ</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => navigation.navigate("Categories")}
+          activeOpacity={0.7}
         >
           <Text style={styles.navIcon}>□</Text>
-          <Text style={styles.navLabel}>Danh Mục</Text>
+          <Text style={styles.navLabel}>Danh mục</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => navigation.navigate(user ? "OrderHistory" : "GuestCart")}
+          activeOpacity={0.7}
+        >
           <Text style={styles.navIcon}>○</Text>
-          <Text style={styles.navLabel}>Tìm kiếm</Text>
+          <Text style={styles.navLabel}>Đơn hàng</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => navigation.navigate(user ? "Cart" : "GuestCart")}
+          activeOpacity={0.7}
+        >
           <Text style={styles.navIcon}>▢</Text>
-          <Text style={styles.navLabel}>Order</Text>
+          <Text style={styles.navLabel}>Giỏ hàng</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem, styles.activeNavItem]}>
-          <Text style={[styles.navIcon, styles.activeNavIcon]}>◯</Text>
-          <Text style={[styles.navLabel, styles.activeNavLabel]}>Tài Khoản</Text>
+        <TouchableOpacity 
+          style={[styles.navItem, styles.navItemActive]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.navIcon, styles.navIconActive]}>◯</Text>
+          <Text style={[styles.navLabel, styles.navLabelActive]}>Tài khoản</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -305,38 +465,67 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: "#0a0a0a",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000",
+    backgroundColor: "#0a0a0a",
   },
   loadingText: {
-    color: "#fff",
+    color: "#ffffff",
     fontSize: 16,
+    fontWeight: "500",
+    letterSpacing: 0.3,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 44,
-    paddingBottom: 12,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1a1a1a",
+    backgroundColor: "#0a0a0a",
+  },
+  headerAdmin: {
+    backgroundColor: "#1a0f00",
+    borderBottomColor: "#f59e0b",
+    borderBottomWidth: 2,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#1a1a1a",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#2a2a2a",
   },
-  backIcon: {
-    color: "#fff",
-    fontSize: 24,
-    fontWeight: "bold",
+  backButtonAdmin: {
+    backgroundColor: "#f59e0b",
+    borderColor: "#fbbf24",
+  },
+  backButtonText: {
+    color: "#ffffff",
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
   },
   headerTitle: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "bold",
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  headerTitleAdmin: {
+    color: "#fbbf24",
   },
   placeholder: {
     width: 40,
@@ -348,40 +537,159 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#1a1a1a",
-    borderRadius: 12,
-    padding: 20,
-    marginHorizontal: 16,
-    marginBottom: 20,
+    borderRadius: 16,
+    padding: 24,
+    marginHorizontal: 24,
+    marginTop: 20,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: "#2a2a2a",
+  },
+  userInfoCardAdmin: {
+    backgroundColor: "#1a0f00",
+    borderColor: "#f59e0b",
+    borderWidth: 2,
+    shadowColor: "#f59e0b",
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
   avatarContainer: {
-    marginRight: 16,
+    marginRight: 18,
+    position: "relative",
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 3,
+    borderColor: "#2a2a2a",
+  },
+  avatarAdmin: {
+    borderColor: "#f59e0b",
+    borderWidth: 3,
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#ef4444",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 3,
+    borderColor: "#0a0a0a",
+    shadowColor: "#ef4444",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  avatarEditText: {
+    fontSize: 12,
   },
   userDetails: {
     flex: 1,
   },
+  userNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    flexWrap: "wrap",
+  },
   userName: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 4,
+    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    marginRight: 10,
+  },
+  adminBadge: {
+    backgroundColor: "#f59e0b",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#fbbf24",
+    shadowColor: "#f59e0b",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  adminBadgeText: {
+    color: "#000000",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
   },
   userEmail: {
-    color: "#9ca3af",
-    fontSize: 14,
-    marginBottom: 2,
+    color: "#d1d5db",
+    fontSize: 15,
+    marginBottom: 6,
+    letterSpacing: 0.2,
+    fontWeight: "500",
   },
   userPhone: {
     color: "#9ca3af",
     fontSize: 14,
+    letterSpacing: 0.2,
+    fontWeight: "500",
+  },
+  adminSection: {
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  userSection: {
+    marginTop: 8,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 24,
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    color: "#9ca3af",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  adminIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#f59e0b",
+    marginLeft: 10,
+    shadowColor: "#f59e0b",
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 2,
   },
   menuContainer: {
-    marginHorizontal: 16,
-    marginBottom: 20,
+    marginHorizontal: 24,
+    marginBottom: 24,
   },
   menuItem: {
     flexDirection: "row",
@@ -389,74 +697,136 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#1a1a1a",
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
+    padding: 18,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#2a2a2a",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  menuItemLeft: {
-    flexDirection: "row",
-    alignItems: "center",
+  menuItemAdmin: {
+    backgroundColor: "#1a0f00",
+    borderColor: "#f59e0b",
+    borderWidth: 1.5,
+    shadowColor: "#f59e0b",
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
-  menuIcon: {
-    fontSize: 20,
-    marginRight: 12,
+  menuItemContent: {
+    flex: 1,
   },
   menuTitle: {
-    color: "#fff",
+    color: "#ffffff",
     fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 6,
+    letterSpacing: 0.3,
+  },
+  menuTitleAdmin: {
+    color: "#fbbf24",
+  },
+  menuSubtitle: {
+    color: "#9ca3af",
+    fontSize: 13,
+    letterSpacing: 0.1,
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+  menuSubtitleAdmin: {
+    color: "#d97706",
   },
   menuArrow: {
-    color: "#9ca3af",
-    fontSize: 20,
-    fontWeight: "bold",
+    color: "#ef4444",
+    fontSize: 22,
+    fontWeight: "300",
+    marginLeft: 12,
+  },
+  menuArrowAdmin: {
+    color: "#f59e0b",
   },
   logoutButton: {
     backgroundColor: "#ef4444",
     borderRadius: 12,
     paddingVertical: 16,
-    marginHorizontal: 16,
-    marginBottom: 20,
+    marginHorizontal: 24,
+    marginTop: 8,
+    marginBottom: 24,
     alignItems: "center",
+    shadowColor: "#ef4444",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
   },
   logoutText: {
-    color: "#fff",
+    color: "#ffffff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   bottomNav: {
     flexDirection: "row",
-    backgroundColor: "#f0f0f0",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    backgroundColor: "#0f0f0f",
+    paddingTop: 8,
+    paddingBottom: 20,
+    paddingHorizontal: 8,
     justifyContent: "space-around",
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    borderTopColor: "#1a1a1a",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  bottomNavBorder: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: "#ef4444",
+    opacity: 0.2,
   },
   navItem: {
     alignItems: "center",
     flex: 1,
     paddingVertical: 4,
+    position: "relative",
   },
-  activeNavItem: {
-    backgroundColor: "#e0e0e0",
-    borderRadius: 8,
+  navItemActive: {
+    opacity: 1,
   },
   navIcon: {
     fontSize: 20,
-    marginBottom: 2,
-    color: "#000",
+    marginBottom: 4,
     fontWeight: "bold",
+    color: "#6b7280",
   },
-  activeNavIcon: {
+  navIconActive: {
     color: "#ef4444",
   },
   navLabel: {
-    fontSize: 10,
-    color: "#000",
+    fontSize: 11,
+    color: "#6b7280",
+    fontWeight: "500",
     textAlign: "center",
   },
-  activeNavLabel: {
+  navLabelActive: {
     color: "#ef4444",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   notLoggedInContainer: {
     flex: 1,
@@ -465,33 +835,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   notLoggedInIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 24,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    marginBottom: 28,
+    opacity: 0.9,
+    backgroundColor: "#1a1a1a",
+    padding: 10,
   },
   notLoggedInTitle: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 8,
+    color: "#ffffff",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 12,
+    letterSpacing: 0.3,
   },
   notLoggedInSubtitle: {
     color: "#9ca3af",
-    fontSize: 14,
+    fontSize: 15,
     textAlign: "center",
-    marginBottom: 32,
-    lineHeight: 20,
+    marginBottom: 36,
+    lineHeight: 22,
+    fontWeight: "500",
   },
   loginButton: {
-    backgroundColor: "#ef4444",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    borderRadius: 12,
+    shadowColor: "#fff",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   loginButtonText: {
-    color: "#fff",
+    color: "#0a0a0a",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
 });

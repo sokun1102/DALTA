@@ -9,7 +9,16 @@
     "start": "node src/server.js",
     "list-users": "node scripts/listUsers.js",
     "set-admin": "node scripts/setAdminRole.js",
-    "set-admin-email": "node scripts/setAdminByEmail.js"
+    "set-admin-email": "node scripts/setAdminByEmail.js",
+    "check-product": "node checkProduct.js",
+    "check-all-products": "node checkAllProducts.js",
+    "fix-product-stock": "node fixProductStock.js",
+    "check-id": "node checkId.js",
+    "update-products-realistic": "node src/scripts/updateProductsToRealistic.js",
+    "create-sample-products": "node src/scripts/createSampleProducts.js",
+    "update-categories-tech": "node src/scripts/updateCategoriesTech.js",
+    "cleanup-categories": "node src/scripts/cleanupCategories.js",
+    "add-product-images": "node src/scripts/addProductImages.js"
   },
   "keywords": [
     "nodejs",
@@ -27,7 +36,8 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.1",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "react-native-svg": "^15.15.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

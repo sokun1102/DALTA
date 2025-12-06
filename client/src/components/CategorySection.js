@@ -38,7 +38,7 @@ export default function CategorySection({
           cardWidth={cardWidth}
           onImageError={onImageError}
           failedImageProductIds={failedImageProductIds}
-          onPress={onProductPress}
+          onPress={() => onProductPress && onProductPress(item)}
           onAddToCart={onAddToCart}
         />
       </View>

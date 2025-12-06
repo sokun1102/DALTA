@@ -22,8 +22,13 @@ const promotionSchema = new mongoose.Schema(
       ref: 'Category' 
     }]
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false }, versionKey: false }
 );
+
+// Indexes để tối ưu queries
+promotionSchema.index({ start_date: 1, end_date: 1 }); // Tìm promotions đang active
+promotionSchema.index({ product_ids: 1 }); // Tìm promotions cho product
+promotionSchema.index({ category_ids: 1 }); // Tìm promotions cho category
 
 const Promotion = mongoose.model("Promotion", promotionSchema);
 export default Promotion;

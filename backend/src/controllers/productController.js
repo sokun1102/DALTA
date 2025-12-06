@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import Category from "../models/Category.js";
+import mongoose from "mongoose";
 
 // 👉 Get all products
 export const getProducts = async (req, res) => {
@@ -14,12 +15,45 @@ export const getProducts = async (req, res) => {
 // 👉 Get single product
 export const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).populate('category_id', 'name');
-    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+    const { id } = req.params;
+    
+    console.log("getProductById - id:", id);
+    
+    // Validate id
+    if (!id) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Product ID is required" 
+      });
+    }
+
+    // Check if id is valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.error("getProductById - Invalid ID format:", id);
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid product ID format" 
+      });
+    }
+
+    const product = await Product.findById(id).populate('category_id', 'name');
+    
+    if (!product) {
+      console.error("getProductById - Product not found:", id);
+      return res.status(404).json({ 
+        success: false, 
+        message: "Product not found" 
+      });
+    }
     
     res.json({ success: true, data: product });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("Error in getProductById:", err);
+    res.status(500).json({ 
+      success: false, 
+      error: err.message,
+      message: "Failed to load product"
+    });
   }
 };
 

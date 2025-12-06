@@ -143,3 +143,257 @@ export const getMe = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// 👉 Update current user profile
+export const updateProfile = async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { name, email, phone_number, password, avatar } = req.body;
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Cập nhật các trường nếu có
+    if (name !== undefined) user.name = name;
+    if (phone_number !== undefined) user.phone_number = phone_number;
+    if (avatar !== undefined) user.avatar = avatar;
+
+    // Kiểm tra email nếu có thay đổi
+    if (email !== undefined && email !== user.email) {
+      // Kiểm tra email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ success: false, message: "Invalid email format" });
+      }
+
+      // Kiểm tra email đã tồn tại chưa
+      const existingUser = await User.findOne({ email });
+      if (existingUser && existingUser._id.toString() !== req.userId) {
+        return res.status(400).json({ success: false, message: "Email already exists" });
+      }
+
+      user.email = email;
+    }
+
+    // Cập nhật password nếu có
+    if (password !== undefined) {
+      if (typeof password !== 'string' || password.length < 6) {
+        return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
+      }
+      const salt = await bcrypt.genSalt(10);
+      user.password_hash = await bcrypt.hash(password, salt);
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone_number: user.phone_number,
+        role: user.role,
+        avatar: user.avatar
+      }
+    });
+  } catch (err) {
+    console.error("Error updating profile:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// 👉 Upload avatar
+export const uploadAvatar = async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No image file provided" });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const avatarPath = `/uploads/avatars/${req.file.filename}`;
+    user.avatar = avatarPath;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Avatar uploaded successfully",
+      data: { avatar: avatarPath }
+    });
+  } catch (err) {
+    console.error("Error uploading avatar:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// 👉 Get addresses
+export const getAddresses = async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.json({
+      success: true,
+      data: user.addresses || []
+    });
+  } catch (err) {
+    console.error("Error getting addresses:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// 👉 Add address
+export const addAddress = async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { name, phone, street, ward, district, city, zip, is_default } = req.body;
+
+    if (!name || !phone || !street || !city) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide name, phone, street, and city"
+      });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Nếu set làm default, bỏ default của các địa chỉ khác
+    if (is_default) {
+      user.addresses.forEach(addr => {
+        addr.is_default = false;
+      });
+    }
+
+    const newAddress = {
+      name,
+      phone,
+      street,
+      ward: ward || "",
+      district: district || "",
+      city,
+      zip: zip || "",
+      is_default: is_default || false
+    };
+
+    user.addresses.push(newAddress);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Address added successfully",
+      data: user.addresses[user.addresses.length - 1]
+    });
+  } catch (err) {
+    console.error("Error adding address:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// 👉 Update address
+export const updateAddress = async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { addressId } = req.params;
+    const { name, phone, street, ward, district, city, zip, is_default } = req.body;
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const address = user.addresses.id(addressId);
+    if (!address) {
+      return res.status(404).json({ success: false, message: "Address not found" });
+    }
+
+    // Nếu set làm default, bỏ default của các địa chỉ khác
+    if (is_default) {
+      user.addresses.forEach(addr => {
+        if (addr._id.toString() !== addressId) {
+          addr.is_default = false;
+        }
+      });
+    }
+
+    if (name !== undefined) address.name = name;
+    if (phone !== undefined) address.phone = phone;
+    if (street !== undefined) address.street = street;
+    if (ward !== undefined) address.ward = ward;
+    if (district !== undefined) address.district = district;
+    if (city !== undefined) address.city = city;
+    if (zip !== undefined) address.zip = zip;
+    if (is_default !== undefined) address.is_default = is_default;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Address updated successfully",
+      data: address
+    });
+  } catch (err) {
+    console.error("Error updating address:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// 👉 Delete address
+export const deleteAddress = async (req, res) => {
+  try {
+    if (!req.userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const { addressId } = req.params;
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const address = user.addresses.id(addressId);
+    if (!address) {
+      return res.status(404).json({ success: false, message: "Address not found" });
+    }
+
+    user.addresses.pull(addressId);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Address deleted successfully"
+    });
+  } catch (err) {
+    console.error("Error deleting address:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};

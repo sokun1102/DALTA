@@ -10,8 +10,12 @@ const categorySchema = new mongoose.Schema(
       default: null 
     }
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
+
+// Indexes để tối ưu queries
+categorySchema.index({ name: 1 }); // Unique index đã có trong schema
+categorySchema.index({ parent_id: 1 }); // Tìm categories con
 
 const Category = mongoose.model("Category", categorySchema);
 export default Category;

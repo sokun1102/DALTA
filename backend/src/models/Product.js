@@ -17,11 +17,18 @@ const productSchema = new mongoose.Schema(
     variations: [{
       size: { type: String },
       color: { type: String },
+      ram: { type: String },
       stock: { type: Number, default: 0 }
     }]
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
+
+// Indexes để tối ưu queries
+productSchema.index({ category_id: 1 }); // Tìm sản phẩm theo category
+productSchema.index({ sku: 1 }); // Unique index đã có trong schema
+productSchema.index({ in_stock: 1 }); // Filter sản phẩm còn hàng
+productSchema.index({ name: "text", description: "text" }); // Text search
 
 const Product = mongoose.model("Product", productSchema);
 export default Product;

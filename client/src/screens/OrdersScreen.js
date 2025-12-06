@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import API, { setAuthToken } from "../services/api";
+import API, { setAuthToken, orderAPI } from "../services/api";
 
 export default function OrdersScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
@@ -57,7 +57,7 @@ export default function OrdersScreen({ navigation }) {
       }
 
       setAuthToken(token);
-      const response = await API.get("/orders/list"); // Sửa endpoint
+      const response = await orderAPI.getAllOrders(); // Endpoint cho admin xem tất cả đơn hàng
       console.log("Orders response:", response.data);
       
       if (response.data && response.data.success) {
@@ -89,7 +89,7 @@ export default function OrdersScreen({ navigation }) {
       const token = await AsyncStorage.getItem("token");
       setAuthToken(token);
       
-      await API.put(`/orders/${orderId}/status`, { status: newStatus });
+      await orderAPI.updateOrderStatus(orderId, newStatus);
       await fetchOrders();
       Alert.alert("Thành công", "Đã cập nhật trạng thái đơn hàng");
     } catch (error) {

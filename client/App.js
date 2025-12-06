@@ -15,6 +15,14 @@ import GuestCartScreen from "./src/screens/GuestCartScreen";
 import CheckoutScreen from "./src/screens/CheckoutScreen";
 import OrdersScreen from "./src/screens/OrdersScreen";
 import OrderHistoryScreen from "./src/screens/OrderHistoryScreen";
+import OrderDetailScreen from "./src/screens/OrderDetailScreen";
+import AddressesScreen from "./src/screens/AddressesScreen";
+import EditProfileAndAddressesScreen from "./src/screens/EditProfileAndAddressesScreen";
+import VouchersScreen from "./src/screens/VouchersScreen";
+import RevenueStatsScreen from "./src/screens/RevenueStatsScreen";
+import PaymentMethodsScreen from "./src/screens/PaymentMethodsScreen";
+import ProductDetailScreen from "./src/screens/ProductDetailScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
 
 const Stack = createStackNavigator();
 
@@ -40,6 +48,14 @@ export default function App() {
         <Stack.Screen name="Checkout" component={CheckoutScreen} />
         <Stack.Screen name="Orders" component={OrdersScreen} />
         <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
+        <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+        <Stack.Screen name="Addresses" component={AddressesScreen} />
+        <Stack.Screen name="EditProfileAndAddresses" component={EditProfileAndAddressesScreen} />
+        <Stack.Screen name="Vouchers" component={VouchersScreen} />
+        <Stack.Screen name="RevenueStats" component={RevenueStatsScreen} />
+        <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
+        <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

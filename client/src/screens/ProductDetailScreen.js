@@ -208,7 +208,8 @@ export default function ProductDetailScreen({ navigation }) {
       if (!idString) return;
       
       const response = await reviewAPI.getProductReviews(idString);
-      setReviews(response.data.data || []);
+      const list = response?.data?.data || [];
+      setReviews(list.filter(Boolean)); // tránh phần tử null gây lỗi _id
     } catch (err) {
       if (err.response?.status !== 400 && err.response?.status !== 404) {
         console.error("Error loading reviews:", err);
@@ -222,7 +223,7 @@ export default function ProductDetailScreen({ navigation }) {
       if (!idString) return;
       
       const response = await reviewAPI.getUserReview(idString);
-      if (response.data.data) {
+      if (response?.data?.data) {
         setUserReview(response.data.data);
         setReviewForm({
           rating: response.data.data.rating,
@@ -1080,7 +1081,9 @@ export default function ProductDetailScreen({ navigation }) {
                   </Text>
                 </View>
               ) : (
-                filteredReviews.map((review) => (
+                filteredReviews.map((review) => {
+                  if (!review) return null;
+                  return (
                   <View key={review._id} style={styles.reviewCard}>
                     <View style={styles.reviewHeader}>
                       <View style={styles.reviewUserInfo}>
@@ -1109,7 +1112,8 @@ export default function ProductDetailScreen({ navigation }) {
                     </View>
                     <Text style={styles.reviewComment}>{review.comment}</Text>
                   </View>
-                ))
+                  );
+                })
               )}
             </View>
           </View>
